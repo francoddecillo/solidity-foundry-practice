@@ -1,123 +1,84 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
 
- // SPDX-License-Identifier: MIT
- pragma solidity ^0.8.0;
+import {Test} from "forge-std/Test.sol";
+import {DirectorioClientes} from "../src/5_DirectorioClientes.sol";
 
- import {Test} from "forge-std/Test.sol";
- import {DirectorioClientes} from "../src/5_DirectorioClientes.sol";
+contract DirectorioClientesTest is Test {
+    DirectorioClientes directorio;
 
- contract DirectorioClientesTest is Test {
+    address clienteA = address(0x1111);
+    address clienteB = address(0x2222);
+    address intruso = address(0x3333);
 
-     DirectorioClientes directorio;
+    function setUp() public {
+        directorio = new DirectorioClientes();
+    }
 
-     address clienteA = address(0x1111);
-     address clienteB = address(0x2222);
-     address intruso = address(0x3333);
+    // TEST 1: Verificar analista inicial
+    function testAnalistaInicial() public view {
+        assertEq(directorio.analistaRiesgo(), address(this));
+    }
 
-     function setUp() public {
-         directorio = new DirectorioClientes();
-     }
+    // TEST 2: Cliente sin registrar
+    function testClienteSinRegistrar() public view {
+        assertEq(directorio.calificacionCrediticia(clienteA), 0);
 
-     // TEST 1: Verificar analista inicial
-     function testAnalistaInicial() public view {
-         assertEq(
-             directorio.analistaRiesgo(),
-             address(this)
-         );
-     }
+        assertFalse(directorio.esAptoParaCredito(clienteA));
+    }
 
-     // TEST 2: Cliente sin registrar
-     function testClienteSinRegistrar() public view {
-         assertEq(
-             directorio.calificacionCrediticia(clienteA),
-             0
-         );
+    // TEST 3: Registrar dos clientes
+    function testDosClientes() public {
+        directorio.actualizarCalificacion(clienteA, 85);
+        directorio.actualizarCalificacion(clienteB, 45);
 
-         assertFalse(
-             directorio.esAptoParaCredito(clienteA)
-         );
-     }
+        assertEq(directorio.calificacionCrediticia(clienteA), 85);
 
-     // TEST 3: Registrar dos clientes
-     function testDosClientes() public {
-         directorio.actualizarCalificacion(clienteA, 85);
-         directorio.actualizarCalificacion(clienteB, 45);
+        assertEq(directorio.calificacionCrediticia(clienteB), 45);
 
-         assertEq(
-             directorio.calificacionCrediticia(clienteA),
-             85
-         );
+        assertTrue(directorio.esAptoParaCredito(clienteA));
 
-         assertEq(
-             directorio.calificacionCrediticia(clienteB),
-             45
-         );
+        assertFalse(directorio.esAptoParaCredito(clienteB));
+    }
 
-         assertTrue(
-             directorio.esAptoParaCredito(clienteA)
-         );
+    // TEST 4: Actualizar puntaje de un cliente
+    function testActualizarCalificacion() public {
+        directorio.actualizarCalificacion(clienteB, 45);
+        directorio.actualizarCalificacion(clienteB, 70);
 
-         assertFalse(
-             directorio.esAptoParaCredito(clienteB)
-         );
-     }
+        assertEq(directorio.calificacionCrediticia(clienteB), 70);
 
-     // TEST 4: Actualizar puntaje de un cliente
-     function testActualizarCalificacion() public {
-         directorio.actualizarCalificacion(clienteB, 45);
-         directorio.actualizarCalificacion(clienteB, 70);
+        assertTrue(directorio.esAptoParaCredito(clienteB));
+    }
 
-         assertEq(
-             directorio.calificacionCrediticia(clienteB),
-             70
-         );
+    // TEST 5: Limite maximo permitido
+    function testLimiteCien() public {
+        directorio.actualizarCalificacion(clienteA, 100);
 
-         assertTrue(
-             directorio.esAptoParaCredito(clienteB)
-         );
-     }
+        assertEq(directorio.calificacionCrediticia(clienteA), 100);
 
-     // TEST 5: Limite maximo permitido
-     function testLimiteCien() public {
-         directorio.actualizarCalificacion(clienteA, 100);
+        vm.expectRevert(abi.encodeWithSignature("Error(string)", "Error: La calificacion maxima permitida es 100."));
 
-         assertEq(
-             directorio.calificacionCrediticia(clienteA),
-             100
-         );
+        directorio.actualizarCalificacion(clienteA, 101);
+    }
 
-         vm.expectRevert(
-             abi.encodeWithSignature(
-                 "Error(string)",
-                 "Error: La calificacion maxima permitida es 100."
-             )
-         );
+    // TEST 6: Direccion cero
+    function testDireccionCero() public {
+        vm.expectRevert(abi.encodeWithSignature("Error(string)", "Error: Direccion de cliente no valida."));
 
-         directorio.actualizarCalificacion(clienteA, 101);
-     }
+        directorio.actualizarCalificacion(address(0), 85);
+    }
 
-     // TEST 6: Direccion cero
-     function testDireccionCero() public {
-         vm.expectRevert(
-             abi.encodeWithSignature(
-                 "Error(string)",
-                 "Error: Direccion de cliente no valida."
-             )
-         );
+    // TEST 7: Acceso no autorizado
+    function testIntrusoNoPuedeActualizar() public {
+        vm.prank(intruso);
 
-         directorio.actualizarCalificacion(address(0), 85);
-     }
+        vm.expectRevert(
+            abi.encodeWithSignature(
+                "Error(string)", "Error: Solo el analista de riesgos puede actualizar calificaciones."
+            )
+        );
 
-     // TEST 7: Acceso no autorizado
-     function testIntrusoNoPuedeActualizar() public {
-         vm.prank(intruso);
-
-         vm.expectRevert(
-             abi.encodeWithSignature(
-                 "Error(string)",
-                 "Error: Solo el analista de riesgos puede actualizar calificaciones."
-             )
-         );
-
-         directorio.actualizarCalificacion(clienteA, 99);
-     }
- }
+        directorio.actualizarCalificacion(clienteA, 99);
+    }
+}

@@ -11,10 +11,10 @@ pragma solidity ^0.8.0;
 contract SeguimientoEnvios {
     // Definición del Enumerador que representa los estados lógicos posibles
     enum EstadoEnvio {
-        Creado,      // Equivale internamente a 0
-        EnTransito,  // Equivale internamente a 1
-        Recibido,    // Equivale internamente a 2
-        Cancelado    // Equivale internamente a 3
+        Creado, // Equivale internamente a 0
+        EnTransito, // Equivale internamente a 1
+        Recibido, // Equivale internamente a 2
+        Cancelado // Equivale internamente a 3
     }
 
     struct Envio {
@@ -25,7 +25,7 @@ contract SeguimientoEnvios {
 
     // Mapeo: ID del Envío => Detalle del Envío
     mapping(uint256 => Envio) public envios;
-    
+
     // Contador para generar IDs únicos de envíos
     uint256 public totalEnvios;
 
@@ -70,9 +70,9 @@ contract SeguimientoEnvios {
     function despacharEnvio(uint256 _id) public soloLogistica {
         require(_id < totalEnvios, "Error: El envio no existe.");
         Envio storage envio = envios[_id];
-        
+
         require(envio.estado == EstadoEnvio.Creado, "Error: Solo se puede despachar si esta en estado Creado.");
-        
+
         envio.estado = EstadoEnvio.EnTransito;
         emit EstadoActualizado(_id, EstadoEnvio.EnTransito);
     }

@@ -43,7 +43,7 @@ contract NominaMensual {
         require(_salario <= address(this).balance, "Error: Fondos insuficientes en el contrato de nomina.");
 
         // Ejecutar el pago de forma segura
-        (bool exito, ) = _empleado.call{value: _salario}("");
+        (bool exito,) = _empleado.call{value: _salario}("");
         require(exito, "Error: La transferencia de sueldo fallo.");
 
         // Emitir el evento de auditoría contable

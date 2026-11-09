@@ -11,7 +11,7 @@ pragma solidity ^0.8.0;
 contract DirectorioClientes {
     // Mapping: Llave (dirección del cliente) => Valor (calificación crediticia 0-100)
     mapping(address => uint256) public calificacionCrediticia;
-    
+
     // Dirección del analista de riesgos (administrador)
     address public analistaRiesgo;
 
@@ -32,7 +32,7 @@ contract DirectorioClientes {
     function actualizarCalificacion(address _cliente, uint256 _calificacion) public soloAnalista {
         require(_cliente != address(0), "Error: Direccion de cliente no valida.");
         require(_calificacion <= 100, "Error: La calificacion maxima permitida es 100.");
-        
+
         calificacionCrediticia[_cliente] = _calificacion;
     }
 

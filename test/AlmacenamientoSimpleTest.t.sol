@@ -1,35 +1,30 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
 
- // SPDX-License-Identifier: MIT
- pragma solidity ^0.8.0;
+import {Test} from "forge-std/Test.sol";
+import {AlmacenamientoSimple} from "../src/1_AlmacenamientoSimple.sol";
 
- import {Test} from "forge-std/Test.sol";
- import {AlmacenamientoSimple} from "../src/1_AlmacenamientoSimple.sol";
+contract AlmacenamientoSimpleTest is Test {
+    AlmacenamientoSimple almacen;
 
- contract AlmacenamientoSimpleTest is Test {
+    function setUp() public {
+        almacen = new AlmacenamientoSimple();
+    }
 
-     AlmacenamientoSimple almacen;
+    function testNombreInicial() public view {
+        assertEq(almacen.obtenerNombre(), "");
+    }
 
-     function setUp() public {
-         almacen = new AlmacenamientoSimple();
-     }
+    function testGuardarNombre() public {
+        almacen.establecerNombre("Empresa ABC");
 
-     function testNombreInicial() public view {
-         assertEq(almacen.obtenerNombre(), "");
-     }
+        assertEq(almacen.obtenerNombre(), "Empresa ABC");
+    }
 
-     function testGuardarNombre() public {
-         almacen.establecerNombre("Empresa ABC");
+    function testActualizarNombre() public {
+        almacen.establecerNombre("Empresa ABC");
 
-         assertEq(
-             almacen.obtenerNombre(),
-             "Empresa ABC"
-         );
-     }
-
-     function testActualizarNombre() public {
-         almacen.establecerNombre("Empresa ABC");
-
-         almacen.establecerNombre("Empresa XYZ");
+        almacen.establecerNombre("Empresa XYZ");
 
         /* FALLA:
          assertEq(
@@ -38,12 +33,8 @@
          );
          */
 
-         // PASA: 
-         assertEq(
-             almacen.obtenerNombre(),
-             "Empresa XYZ"
-         );
-
-     }
- }
+        // PASA:
+        assertEq(almacen.obtenerNombre(), "Empresa XYZ");
+    }
+}
 

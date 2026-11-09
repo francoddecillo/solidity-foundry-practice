@@ -10,13 +10,13 @@ pragma solidity ^0.8.0;
 contract RegistroActivos {
     // Identificador único del activo (Número entero sin signo)
     uint256 public idActivo;
-    
+
     // Valor estimado en USD del activo (Número entero)
     uint256 public valorUSD;
-    
+
     // Indica si el activo ya está completamente depreciado en los libros contables
     bool public estaDepreciado;
-    
+
     // Dirección (wallet) del empleado responsable de la custodia del activo
     address public custodio;
 

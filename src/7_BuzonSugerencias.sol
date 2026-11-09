@@ -39,12 +39,9 @@ contract BuzonSugerencias {
         require(bytes(_descripcion).length > 0, "Error: La sugerencia no puede estar vacia.");
 
         // Creamos y agregamos el elemento a la lista usando .push()
-        sugerencias.push(Sugerencia({
-            autor: msg.sender,
-            descripcion: _descripcion,
-            votosApoyo: 0,
-            estaProcesada: false
-        }));
+        sugerencias.push(
+            Sugerencia({autor: msg.sender, descripcion: _descripcion, votosApoyo: 0, estaProcesada: false})
+        );
     }
 
     /**

@@ -43,7 +43,10 @@ contract ContratoMultifirmaLigero {
      * @dev Registra a los tres directores autorizados.
      */
     constructor(address _director1, address _director2, address _director3) {
-        require(_director1 != address(0) && _director2 != address(0) && _director3 != address(0), "Error: Direcciones invalidas.");
+        require(
+            _director1 != address(0) && _director2 != address(0) && _director3 != address(0),
+            "Error: Direcciones invalidas."
+        );
         director1 = _director1;
         director2 = _director2;
         director3 = _director3;
@@ -63,12 +66,9 @@ contract ContratoMultifirmaLigero {
         require(_destinatario != address(0), "Error: Destinatario invalido.");
         require(_monto <= address(this).balance, "Error: El monto de la propuesta supera el saldo disponible.");
 
-        propuestas.push(PropuestaRetiro({
-            destinatario: _destinatario,
-            monto: _monto,
-            cantidadAprobaciones: 0,
-            ejecutada: false
-        }));
+        propuestas.push(
+            PropuestaRetiro({destinatario: _destinatario, monto: _monto, cantidadAprobaciones: 0, ejecutada: false})
+        );
 
         emit PropuestaCreada(propuestas.length - 1, _destinatario, _monto);
     }
@@ -82,7 +82,9 @@ contract ContratoMultifirmaLigero {
         PropuestaRetiro storage propuesta = propuestas[_idPropuesta];
 
         require(!propuesta.ejecutada, "Error: La propuesta ya fue ejecutada.");
-        require(!aprobacionesPorPropuesta[_idPropuesta][msg.sender], "Error: Ya has aprobado esta propuesta previamente.");
+        require(
+            !aprobacionesPorPropuesta[_idPropuesta][msg.sender], "Error: Ya has aprobado esta propuesta previamente."
+        );
 
         aprobacionesPorPropuesta[_idPropuesta][msg.sender] = true;
         propuesta.cantidadAprobaciones++;
@@ -99,12 +101,14 @@ contract ContratoMultifirmaLigero {
         PropuestaRetiro storage propuesta = propuestas[_idPropuesta];
 
         require(!propuesta.ejecutada, "Error: La propuesta ya fue ejecutada.");
-        require(propuesta.cantidadAprobaciones >= 2, "Error: La propuesta requiere al menos 2 aprobaciones para ejecutarse.");
+        require(
+            propuesta.cantidadAprobaciones >= 2, "Error: La propuesta requiere al menos 2 aprobaciones para ejecutarse."
+        );
         require(propuesta.monto <= address(this).balance, "Error: Saldo insuficiente en el contrato para transferir.");
 
         propuesta.ejecutada = true;
 
-        (bool exito, ) = propuesta.destinatario.call{value: propuesta.monto}("");
+        (bool exito,) = propuesta.destinatario.call{value: propuesta.monto}("");
         require(exito, "Error: La transferencia fallo.");
 
         emit TransaccionEjecutada(_idPropuesta, propuesta.destinatario, propuesta.monto);

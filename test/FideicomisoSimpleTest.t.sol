@@ -1,303 +1,213 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
 
- // SPDX-License-Identifier: MIT
- pragma solidity ^0.8.0;
+import {Test} from "forge-std/Test.sol";
+import {FideicomisoSimple} from "../src/11_FideicomisoSimple.sol";
 
- import {Test} from "forge-std/Test.sol";
- import {FideicomisoSimple} from "../src/11_FideicomisoSimple.sol";
+contract FideicomisoSimpleTest is Test {
+    FideicomisoSimple fideicomiso;
 
- contract FideicomisoSimpleTest is Test {
+    address comprador = address(0xA11CE);
+    address payable vendedor = payable(address(0xBEEF));
+    address mediador = address(0xCAFE);
+    address intruso = address(0xBAD);
 
-     FideicomisoSimple fideicomiso;
+    event FondosLiberados(address destinatario, uint256 monto);
+    event FondosReembolsados(address destinatario, uint256 monto);
 
-     address comprador = address(0xA11CE);
-     address payable vendedor = payable(address(0xBEEF));
-     address mediador = address(0xCAFE);
-     address intruso = address(0xBAD);
+    function setUp() public {
+        // Entregamos 10 ETH ficticios al comprador
+        vm.deal(comprador, 10 ether);
+        vm.deal(vendedor, 0);
 
-     event FondosLiberados(address destinatario, uint256 monto);
-     event FondosReembolsados(address destinatario, uint256 monto);
+        // Simulamos que el comprador despliega el contrato
+        vm.prank(comprador);
 
-     function setUp() public {
-         // Entregamos 10 ETH ficticios al comprador
-         vm.deal(comprador, 10 ether);
-         vm.deal(vendedor, 0);
+        fideicomiso = new FideicomisoSimple{value: 1 ether}(vendedor, mediador, 1 days);
+    }
 
-         // Simulamos que el comprador despliega el contrato
-         vm.prank(comprador);
+    // Funcion auxiliar para comprobar mensajes de error
+    function errorTexto(string memory mensaje) internal pure returns (bytes memory) {
+        return abi.encodeWithSignature("Error(string)", mensaje);
+    }
 
-         fideicomiso = new FideicomisoSimple{value: 1 ether}(
-             vendedor,
-             mediador,
-             1 days
-         );
-     }
+    // TEST 1: Estado inicial
+    function testEstadoInicial() public view {
+        assertEq(fideicomiso.comprador(), comprador);
+        assertEq(fideicomiso.vendedor(), vendedor);
+        assertEq(fideicomiso.mediador(), mediador);
+        assertEq(fideicomiso.montoFideicomiso(), 1 ether);
+        assertEq(address(fideicomiso).balance, 1 ether);
 
-     // Funcion auxiliar para comprobar mensajes de error
-     function errorTexto(string memory mensaje)
-         internal
-         pure
-         returns (bytes memory)
-     {
-         return abi.encodeWithSignature(
-             "Error(string)",
-             mensaje
-         );
-     }
+        assertEq(fideicomiso.fechaLimiteReclamacion(), block.timestamp + 1 days);
 
-     // TEST 1: Estado inicial
-     function testEstadoInicial() public view {
-         assertEq(fideicomiso.comprador(), comprador);
-         assertEq(fideicomiso.vendedor(), vendedor);
-         assertEq(fideicomiso.mediador(), mediador);
-         assertEq(fideicomiso.montoFideicomiso(), 1 ether);
-         assertEq(address(fideicomiso).balance, 1 ether);
+        assertFalse(fideicomiso.estaCompletado());
+        assertFalse(fideicomiso.fondosReembolsados());
+    }
 
-         assertEq(
-             fideicomiso.fechaLimiteReclamacion(),
-             block.timestamp + 1 days
-         );
+    // TEST 2: No se puede desplegar sin ETH
+    function testConstructorSinEther() public {
+        vm.expectRevert(errorTexto("Error: Debe depositar Ether para inicializar el fideicomiso."));
 
-         assertFalse(fideicomiso.estaCompletado());
-         assertFalse(fideicomiso.fondosReembolsados());
-     }
+        vm.prank(comprador);
 
-     // TEST 2: No se puede desplegar sin ETH
-     function testConstructorSinEther() public {
-         vm.expectRevert(
-             errorTexto(
-                 "Error: Debe depositar Ether para inicializar el fideicomiso."
-             )
-         );
+        new FideicomisoSimple{value: 0}(vendedor, mediador, 1 days);
+    }
 
-         vm.prank(comprador);
+    // TEST 3: No se admite vendedor cero
+    function testConstructorVendedorCero() public {
+        vm.expectRevert(errorTexto("Error: Direcciones invalidas."));
 
-         new FideicomisoSimple{value: 0}(
-             vendedor,
-             mediador,
-             1 days
-         );
-     }
+        vm.prank(comprador);
 
-     // TEST 3: No se admite vendedor cero
-     function testConstructorVendedorCero() public {
-         vm.expectRevert(
-             errorTexto("Error: Direcciones invalidas.")
-         );
+        new FideicomisoSimple{value: 1 ether}(payable(address(0)), mediador, 1 days);
+    }
 
-         vm.prank(comprador);
+    // TEST 4: Comprador y vendedor no pueden ser iguales
+    function testCompradorNoPuedeSerVendedor() public {
+        vm.expectRevert(errorTexto("Error: El comprador no puede ser el vendedor."));
 
-         new FideicomisoSimple{value: 1 ether}(
-             payable(address(0)),
-             mediador,
-             1 days
-         );
-     }
+        vm.prank(comprador);
 
-     // TEST 4: Comprador y vendedor no pueden ser iguales
-     function testCompradorNoPuedeSerVendedor() public {
-         vm.expectRevert(
-             errorTexto(
-                 "Error: El comprador no puede ser el vendedor."
-             )
-         );
+        new FideicomisoSimple{value: 1 ether}(payable(comprador), mediador, 1 days);
+    }
 
-         vm.prank(comprador);
+    // TEST 5: Liberacion voluntaria y evento
+    function testLiberacionVoluntariaYEvento() public {
+        vm.expectEmit(false, false, false, true, address(fideicomiso));
 
-         new FideicomisoSimple{value: 1 ether}(
-             payable(comprador),
-             mediador,
-             1 days
-         );
-     }
+        emit FondosLiberados(vendedor, 1 ether);
 
-     // TEST 5: Liberacion voluntaria y evento
-     function testLiberacionVoluntariaYEvento() public {
-         vm.expectEmit(
-             false, false, false, true,
-             address(fideicomiso)
-         );
+        vm.prank(comprador);
+        fideicomiso.liberarFondosComprador();
 
-         emit FondosLiberados(vendedor, 1 ether);
+        assertTrue(fideicomiso.estaCompletado());
+        assertFalse(fideicomiso.fondosReembolsados());
+        assertEq(vendedor.balance, 1 ether);
+        assertEq(address(fideicomiso).balance, 0);
+    }
 
-         vm.prank(comprador);
-         fideicomiso.liberarFondosComprador();
+    // TEST 6: No se pueden liberar los fondos dos veces
+    function testNoLiberarDosVeces() public {
+        vm.prank(comprador);
+        fideicomiso.liberarFondosComprador();
 
-         assertTrue(fideicomiso.estaCompletado());
-         assertFalse(fideicomiso.fondosReembolsados());
-         assertEq(vendedor.balance, 1 ether);
-         assertEq(address(fideicomiso).balance, 0);
-     }
+        vm.expectRevert(errorTexto("Error: El fideicomiso ya ha finalizado."));
 
-     // TEST 6: No se pueden liberar los fondos dos veces
-     function testNoLiberarDosVeces() public {
-         vm.prank(comprador);
-         fideicomiso.liberarFondosComprador();
+        vm.prank(comprador);
+        fideicomiso.liberarFondosComprador();
+    }
 
-         vm.expectRevert(
-             errorTexto(
-                 "Error: El fideicomiso ya ha finalizado."
-             )
-         );
+    // TEST 7: Intruso no puede liberar los fondos
+    function testIntrusoNoPuedeLiberar() public {
+        vm.expectRevert(errorTexto("Error: Solo el comprador puede liberar de forma voluntaria."));
 
-         vm.prank(comprador);
-         fideicomiso.liberarFondosComprador();
-     }
+        vm.prank(intruso);
+        fideicomiso.liberarFondosComprador();
+    }
 
-     // TEST 7: Intruso no puede liberar los fondos
-     function testIntrusoNoPuedeLiberar() public {
-         vm.expectRevert(
-             errorTexto(
-                 "Error: Solo el comprador puede liberar de forma voluntaria."
-             )
-         );
+    // TEST 8: Vendedor no puede retirar antes del plazo
+    function testVendedorAntesDelPlazo() public {
+        vm.expectRevert(errorTexto("Error: El plazo de reclamacion aun no ha expirado."));
 
-         vm.prank(intruso);
-         fideicomiso.liberarFondosComprador();
-     }
+        vm.prank(vendedor);
+        fideicomiso.retirarPorVencimientoVendedor();
+    }
 
-     // TEST 8: Vendedor no puede retirar antes del plazo
-     function testVendedorAntesDelPlazo() public {
-         vm.expectRevert(
-             errorTexto(
-                 "Error: El plazo de reclamacion aun no ha expirado."
-             )
-         );
+    // TEST 9: Exactamente en el vencimiento no alcanza
+    function testVendedorEnFechaLimite() public {
+        vm.warp(fideicomiso.fechaLimiteReclamacion());
 
-         vm.prank(vendedor);
-         fideicomiso.retirarPorVencimientoVendedor();
-     }
+        vm.expectRevert(errorTexto("Error: El plazo de reclamacion aun no ha expirado."));
 
-     // TEST 9: Exactamente en el vencimiento no alcanza
-     function testVendedorEnFechaLimite() public {
-         vm.warp(
-             fideicomiso.fechaLimiteReclamacion()
-         );
+        vm.prank(vendedor);
+        fideicomiso.retirarPorVencimientoVendedor();
+    }
 
-         vm.expectRevert(
-             errorTexto(
-                 "Error: El plazo de reclamacion aun no ha expirado."
-             )
-         );
+    // TEST 10: Retiro exitoso despues del vencimiento
+    function testRetiroPorVencimientoYEvento() public {
+        vm.warp(fideicomiso.fechaLimiteReclamacion() + 1);
 
-         vm.prank(vendedor);
-         fideicomiso.retirarPorVencimientoVendedor();
-     }
+        vm.expectEmit(false, false, false, true, address(fideicomiso));
 
-     // TEST 10: Retiro exitoso despues del vencimiento
-     function testRetiroPorVencimientoYEvento() public {
-         vm.warp(
-             fideicomiso.fechaLimiteReclamacion() + 1
-         );
+        emit FondosLiberados(vendedor, 1 ether);
 
-         vm.expectEmit(
-             false, false, false, true,
-             address(fideicomiso)
-         );
+        vm.prank(vendedor);
+        fideicomiso.retirarPorVencimientoVendedor();
 
-         emit FondosLiberados(vendedor, 1 ether);
+        assertTrue(fideicomiso.estaCompletado());
+        assertEq(vendedor.balance, 1 ether);
+        assertEq(address(fideicomiso).balance, 0);
+    }
 
-         vm.prank(vendedor);
-         fideicomiso.retirarPorVencimientoVendedor();
+    // TEST 11: Un intruso no puede retirar al vencimiento
+    function testIntrusoNoPuedeRetirar() public {
+        vm.warp(fideicomiso.fechaLimiteReclamacion() + 1);
 
-         assertTrue(fideicomiso.estaCompletado());
-         assertEq(vendedor.balance, 1 ether);
-         assertEq(address(fideicomiso).balance, 0);
-     }
+        vm.expectRevert(errorTexto("Error: Solo el vendedor puede invocar esta funcion."));
 
-     // TEST 11: Un intruso no puede retirar al vencimiento
-     function testIntrusoNoPuedeRetirar() public {
-         vm.warp(
-             fideicomiso.fechaLimiteReclamacion() + 1
-         );
+        vm.prank(intruso);
+        fideicomiso.retirarPorVencimientoVendedor();
+    }
 
-         vm.expectRevert(
-             errorTexto(
-                 "Error: Solo el vendedor puede invocar esta funcion."
-             )
-         );
+    // TEST 12: Mediador reembolsa al comprador
+    function testMediadorReembolsaYEvento() public {
+        vm.expectEmit(false, false, false, true, address(fideicomiso));
 
-         vm.prank(intruso);
-         fideicomiso.retirarPorVencimientoVendedor();
-     }
+        emit FondosReembolsados(comprador, 1 ether);
 
-     // TEST 12: Mediador reembolsa al comprador
-     function testMediadorReembolsaYEvento() public {
-         vm.expectEmit(
-             false, false, false, true,
-             address(fideicomiso)
-         );
+        vm.prank(mediador);
+        fideicomiso.resolverDisputaMediador(false);
 
-         emit FondosReembolsados(comprador, 1 ether);
+        assertTrue(fideicomiso.fondosReembolsados());
+        assertFalse(fideicomiso.estaCompletado());
+        assertEq(comprador.balance, 10 ether);
+        assertEq(address(fideicomiso).balance, 0);
+    }
 
-         vm.prank(mediador);
-         fideicomiso.resolverDisputaMediador(false);
+    // TEST 13: Mediador aprueba pagar al vendedor
+    function testMediadorApruebaVendedor() public {
+        vm.expectEmit(false, false, false, true, address(fideicomiso));
 
-         assertTrue(fideicomiso.fondosReembolsados());
-         assertFalse(fideicomiso.estaCompletado());
-         assertEq(comprador.balance, 10 ether);
-         assertEq(address(fideicomiso).balance, 0);
-     }
+        emit FondosLiberados(vendedor, 1 ether);
 
-     // TEST 13: Mediador aprueba pagar al vendedor
-     function testMediadorApruebaVendedor() public {
-         vm.expectEmit(
-             false, false, false, true,
-             address(fideicomiso)
-         );
+        vm.prank(mediador);
+        fideicomiso.resolverDisputaMediador(true);
 
-         emit FondosLiberados(vendedor, 1 ether);
+        assertTrue(fideicomiso.estaCompletado());
+        assertEq(vendedor.balance, 1 ether);
+        assertEq(address(fideicomiso).balance, 0);
+    }
 
-         vm.prank(mediador);
-         fideicomiso.resolverDisputaMediador(true);
+    // TEST 14: Intruso no puede resolver disputas
+    function testIntrusoNoPuedeResolver() public {
+        vm.expectRevert(errorTexto("Error: Solo el mediador puede resolver la disputa."));
 
-         assertTrue(fideicomiso.estaCompletado());
-         assertEq(vendedor.balance, 1 ether);
-         assertEq(address(fideicomiso).balance, 0);
-     }
+        vm.prank(intruso);
+        fideicomiso.resolverDisputaMediador(false);
+    }
 
-     // TEST 14: Intruso no puede resolver disputas
-     function testIntrusoNoPuedeResolver() public {
-         vm.expectRevert(
-             errorTexto(
-                 "Error: Solo el mediador puede resolver la disputa."
-             )
-         );
+    // TEST 15: El mediador no puede resolver dos veces
+    function testMediadorNoPuedeResolverDosVeces() public {
+        vm.prank(mediador);
+        fideicomiso.resolverDisputaMediador(false);
 
-         vm.prank(intruso);
-         fideicomiso.resolverDisputaMediador(false);
-     }
+        vm.expectRevert(errorTexto("Error: El fideicomiso ya ha finalizado."));
 
-     // TEST 15: El mediador no puede resolver dos veces
-     function testMediadorNoPuedeResolverDosVeces() public {
-         vm.prank(mediador);
-         fideicomiso.resolverDisputaMediador(false);
+        vm.prank(mediador);
+        fideicomiso.resolverDisputaMediador(true);
+    }
 
-         vm.expectRevert(
-             errorTexto(
-                 "Error: El fideicomiso ya ha finalizado."
-             )
-         );
+    // TEST 16: No retirar despues de un reembolso
+    function testNoRetirarDespuesDelReembolso() public {
+        vm.prank(mediador);
+        fideicomiso.resolverDisputaMediador(false);
 
-         vm.prank(mediador);
-         fideicomiso.resolverDisputaMediador(true);
-     }
+        vm.warp(fideicomiso.fechaLimiteReclamacion() + 1);
 
-     // TEST 16: No retirar despues de un reembolso
-     function testNoRetirarDespuesDelReembolso() public {
-         vm.prank(mediador);
-         fideicomiso.resolverDisputaMediador(false);
+        vm.expectRevert(errorTexto("Error: El fideicomiso ya ha finalizado."));
 
-         vm.warp(
-             fideicomiso.fechaLimiteReclamacion() + 1
-         );
-
-         vm.expectRevert(
-             errorTexto(
-                 "Error: El fideicomiso ya ha finalizado."
-             )
-         );
-
-         vm.prank(vendedor);
-         fideicomiso.retirarPorVencimientoVendedor();
-     }
- }
+        vm.prank(vendedor);
+        fideicomiso.retirarPorVencimientoVendedor();
+    }
+}

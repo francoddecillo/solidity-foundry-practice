@@ -38,12 +38,8 @@ contract RegistroProveedores {
      */
     function registrarProveedor(string memory _nombre, string memory _rut) public soloAdministrador {
         // Inicialización y guardado de la estructura en la variable de estado
-        proveedorRegistrado = Proveedor({
-            nombre: _nombre,
-            rutIdentificacion: _rut,
-            volumenCompraAcumulado: 0,
-            estaVerificado: true
-        });
+        proveedorRegistrado =
+            Proveedor({nombre: _nombre, rutIdentificacion: _rut, volumenCompraAcumulado: 0, estaVerificado: true});
     }
 
     /**

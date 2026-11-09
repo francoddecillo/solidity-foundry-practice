@@ -14,10 +14,10 @@ contract FideicomisoSimple {
     address public comprador;
     address payable public vendedor;
     address public mediador; // En caso de disputas
-    
+
     uint256 public fechaLimiteReclamacion; // Timestamp limite
     uint256 public montoFideicomiso;
-    
+
     // Estados del fideicomiso
     bool public estaCompletado;
     bool public fondosReembolsados;
@@ -31,11 +31,7 @@ contract FideicomisoSimple {
      * @param _mediador Cuenta de un tercero de confianza para resolver disputas.
      * @param _duracionSegundos Plazo de tiempo en segundos (ej. 86400 para 1 día).
      */
-    constructor(
-        address payable _vendedor,
-        address _mediador,
-        uint256 _duracionSegundos
-    ) payable {
+    constructor(address payable _vendedor, address _mediador, uint256 _duracionSegundos) payable {
         require(msg.value > 0, "Error: Debe depositar Ether para inicializar el fideicomiso.");
         require(_vendedor != address(0) && _mediador != address(0), "Error: Direcciones invalidas.");
         require(_vendedor != msg.sender, "Error: El comprador no puede ser el vendedor.");
@@ -57,7 +53,7 @@ contract FideicomisoSimple {
         require(!estaCompletado && !fondosReembolsados, "Error: El fideicomiso ya ha finalizado.");
 
         estaCompletado = true;
-        (bool exito, ) = vendedor.call{value: montoFideicomiso}("");
+        (bool exito,) = vendedor.call{value: montoFideicomiso}("");
         require(exito, "Error: La transferencia fallo.");
 
         emit FondosLiberados(vendedor, montoFideicomiso);
@@ -72,7 +68,7 @@ contract FideicomisoSimple {
         require(block.timestamp > fechaLimiteReclamacion, "Error: El plazo de reclamacion aun no ha expirado.");
 
         estaCompletado = true;
-        (bool exito, ) = vendedor.call{value: montoFideicomiso}("");
+        (bool exito,) = vendedor.call{value: montoFideicomiso}("");
         require(exito, "Error: La transferencia fallo.");
 
         emit FondosLiberados(vendedor, montoFideicomiso);
@@ -88,12 +84,12 @@ contract FideicomisoSimple {
 
         if (_aprobarVendedor) {
             estaCompletado = true;
-            (bool exito, ) = vendedor.call{value: montoFideicomiso}("");
+            (bool exito,) = vendedor.call{value: montoFideicomiso}("");
             require(exito, "Error: La transferencia fallo.");
             emit FondosLiberados(vendedor, montoFideicomiso);
         } else {
             fondosReembolsados = true;
-            (bool exito, ) = payable(comprador).call{value: montoFideicomiso}("");
+            (bool exito,) = payable(comprador).call{value: montoFideicomiso}("");
             require(exito, "Error: El reembolso fallo.");
             emit FondosReembolsados(comprador, montoFideicomiso);
         }

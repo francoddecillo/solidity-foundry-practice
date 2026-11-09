@@ -11,7 +11,7 @@ pragma solidity ^0.8.0;
 contract CajaChica {
     // Dirección del administrador de la caja chica
     address public administrador;
-    
+
     // Límite de retiro máximo por transacción para control de riesgo
     uint256 public limiteRetiroMaximo;
 
@@ -47,7 +47,7 @@ contract CajaChica {
         require(_destinatario != address(0), "Error: Direccion de destinatario no valida.");
 
         // Envío seguro de Ether usando .call
-        (bool exito, ) = _destinatario.call{value: _monto}("");
+        (bool exito,) = _destinatario.call{value: _monto}("");
         require(exito, "Error: La transferencia fallo.");
     }
 

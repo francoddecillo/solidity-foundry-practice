@@ -1,388 +1,312 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
 
- // SPDX-License-Identifier: MIT
- pragma solidity ^0.8.0;
-
- import {Test} from "forge-std/Test.sol";
- import {VotacionDirectorio} from "../src/13_VotacionDirectorio.sol";
-
- contract VotacionDirectorioTest is Test {
-
-     VotacionDirectorio votacion;
-
-     address director1 = address(0xA11CE);
-     address director2 = address(0xB0B);
-     address director3 = address(0xCAFE);
-     address intruso = address(0xBAD);
-
-     event PropuestaCreada(
-         string descripcion,
-         uint256 limiteTiempo
-     );
-
-     event VotoEmitido(
-         address director,
-         bool aFavor
-     );
-
-     event VotacionCerrada(
-         uint256 votosAFavor,
-         uint256 votosEnContra,
-         bool aprobada
-     );
-
-     function setUp() public {
-         vm.warp(1_000_000);
-
-         address[] memory directores = new address[](3);
-
-         directores[0] = director1;
-         directores[1] = director2;
-         directores[2] = director3;
-
-         votacion = new VotacionDirectorio(directores);
-     }
-
-     function iniciar() internal {
-         votacion.iniciarVotacion(
-             "Comprar equipamiento",
-             1 days
-         );
-     }
-
-     function fechaLimite()
-         internal
-         view
-         returns (uint256 limite)
-     {
-         (, , , limite, ) = votacion.propuestaActual();
-     }
-
-     function conteos()
-         internal
-         view
-         returns (uint256 favor, uint256 contra)
-     {
-         (, favor, contra, , ) = votacion.propuestaActual();
-     }
-
-     // TEST 1: Secretario y directores iniciales
-     function testConfiguracionInicial() public view {
-         assertEq(
-             votacion.secretarioGeneral(),
-             address(this)
-         );
-
-         assertTrue(votacion.esDirector(director1));
-         assertTrue(votacion.esDirector(director2));
-         assertTrue(votacion.esDirector(director3));
-         assertFalse(votacion.esDirector(intruso));
-     }
-
-     // TEST 2: Crear propuesta y comprobar evento
-     function testCrearPropuestaYEvento() public {
-         vm.expectEmit(
-             false, false, false, true,
-             address(votacion)
-         );
-
-         emit PropuestaCreada(
-             "Comprar equipamiento",
-             block.timestamp + 1 days
-         );
-
-         iniciar();
-
-         (
-             string memory descripcion,
-             uint256 favor,
-             uint256 contra,
-             uint256 limite,
-             bool ejecutada
-         ) = votacion.propuestaActual();
+import {Test} from "forge-std/Test.sol";
+import {VotacionDirectorio} from "../src/13_VotacionDirectorio.sol";
 
-         assertEq(descripcion, "Comprar equipamiento");
-         assertEq(favor, 0);
-         assertEq(contra, 0);
-         assertEq(limite, block.timestamp + 1 days);
-         assertFalse(ejecutada);
-     }
+contract VotacionDirectorioTest is Test {
+    VotacionDirectorio votacion;
 
-     // TEST 3: No permitir descripcion vacia
-     function testDescripcionVacia() public {
-         vm.expectRevert(
-             "Error: La descripcion no puede estar vacia."
-         );
+    address director1 = address(0xA11CE);
+    address director2 = address(0xB0B);
+    address director3 = address(0xCAFE);
+    address intruso = address(0xBAD);
 
-         votacion.iniciarVotacion("", 1 days);
-     }
+    event PropuestaCreada(string descripcion, uint256 limiteTiempo);
 
-     // TEST 4: Un intruso no puede crear propuestas
-     function testIntrusoNoPuedeCrearPropuesta() public {
-         vm.expectRevert(
-             "Error: Solo el secretario puede administrar la votacion."
-         );
+    event VotoEmitido(address director, bool aFavor);
 
-         vm.prank(intruso);
-         votacion.iniciarVotacion("Nueva propuesta", 1 days);
-     }
+    event VotacionCerrada(uint256 votosAFavor, uint256 votosEnContra, bool aprobada);
 
-     // TEST 5: Voto a favor y evento
-     function testVotoAFavorYEvento() public {
-         iniciar();
+    function setUp() public {
+        vm.warp(1_000_000);
 
-         vm.expectEmit(
-             false, false, false, true,
-             address(votacion)
-         );
+        address[] memory directores = new address[](3);
 
-         emit VotoEmitido(director1, true);
+        directores[0] = director1;
+        directores[1] = director2;
+        directores[2] = director3;
 
-         vm.prank(director1);
-         votacion.votar(true);
+        votacion = new VotacionDirectorio(directores);
+    }
 
-         assertTrue(votacion.haVotado(director1));
+    function iniciar() internal {
+        votacion.iniciarVotacion("Comprar equipamiento", 1 days);
+    }
 
-         (uint256 favor, uint256 contra) = conteos();
+    function fechaLimite() internal view returns (uint256 limite) {
+        (,,, limite,) = votacion.propuestaActual();
+    }
 
-         assertEq(favor, 1);
-         assertEq(contra, 0);
-     }
+    function conteos() internal view returns (uint256 favor, uint256 contra) {
+        (, favor, contra,,) = votacion.propuestaActual();
+    }
 
-     // TEST 6: Conteo de tres directores
-     function testConteoTresVotos() public {
-         iniciar();
+    // TEST 1: Secretario y directores iniciales
+    function testConfiguracionInicial() public view {
+        assertEq(votacion.secretarioGeneral(), address(this));
 
-         vm.prank(director1);
-         votacion.votar(true);
+        assertTrue(votacion.esDirector(director1));
+        assertTrue(votacion.esDirector(director2));
+        assertTrue(votacion.esDirector(director3));
+        assertFalse(votacion.esDirector(intruso));
+    }
 
-         vm.prank(director2);
-         votacion.votar(true);
+    // TEST 2: Crear propuesta y comprobar evento
+    function testCrearPropuestaYEvento() public {
+        vm.expectEmit(false, false, false, true, address(votacion));
 
-         vm.prank(director3);
-         votacion.votar(false);
+        emit PropuestaCreada("Comprar equipamiento", block.timestamp + 1 days);
 
-         (uint256 favor, uint256 contra) = conteos();
+        iniciar();
 
-         assertEq(favor, 2);
-         assertEq(contra, 1);
-     }
+        (string memory descripcion, uint256 favor, uint256 contra, uint256 limite, bool ejecutada) =
+            votacion.propuestaActual();
 
-     // TEST 7: Impedir doble voto
-     function testNoVotarDosVeces() public {
-         iniciar();
+        assertEq(descripcion, "Comprar equipamiento");
+        assertEq(favor, 0);
+        assertEq(contra, 0);
+        assertEq(limite, block.timestamp + 1 days);
+        assertFalse(ejecutada);
+    }
 
-         vm.prank(director1);
-         votacion.votar(true);
+    // TEST 3: No permitir descripcion vacia
+    function testDescripcionVacia() public {
+        vm.expectRevert("Error: La descripcion no puede estar vacia.");
 
-         vm.expectRevert(
-             "Error: Ya has emitido tu voto para esta propuesta."
-         );
+        votacion.iniciarVotacion("", 1 days);
+    }
 
-         vm.prank(director1);
-         votacion.votar(false);
+    // TEST 4: Un intruso no puede crear propuestas
+    function testIntrusoNoPuedeCrearPropuesta() public {
+        vm.expectRevert("Error: Solo el secretario puede administrar la votacion.");
 
-         (uint256 favor, uint256 contra) = conteos();
+        vm.prank(intruso);
+        votacion.iniciarVotacion("Nueva propuesta", 1 days);
+    }
 
-         assertEq(favor, 1);
-         assertEq(contra, 0);
-     }
+    // TEST 5: Voto a favor y evento
+    function testVotoAFavorYEvento() public {
+        iniciar();
 
-     // TEST 8: No puede votar un usuario externo
-     function testIntrusoNoPuedeVotar() public {
-         iniciar();
+        vm.expectEmit(false, false, false, true, address(votacion));
 
-         vm.expectRevert(
-             "Error: Acceso denegado. Solo los directores autorizados pueden votar."
-         );
+        emit VotoEmitido(director1, true);
 
-         vm.prank(intruso);
-         votacion.votar(true);
-     }
+        vm.prank(director1);
+        votacion.votar(true);
 
-     // TEST 9: No cerrar antes del plazo
-     function testNoCerrarAntesDelPlazo() public {
-         iniciar();
+        assertTrue(votacion.haVotado(director1));
 
-         vm.expectRevert(
-             "Error: El periodo de votacion aun esta activo."
-         );
+        (uint256 favor, uint256 contra) = conteos();
 
-         votacion.cerrarVotacion();
-     }
+        assertEq(favor, 1);
+        assertEq(contra, 0);
+    }
 
-     // TEST 10: Se puede votar exactamente al vencer
-     function testVotarEnFechaLimite() public {
-         iniciar();
+    // TEST 6: Conteo de tres directores
+    function testConteoTresVotos() public {
+        iniciar();
 
-         vm.warp(fechaLimite());
+        vm.prank(director1);
+        votacion.votar(true);
 
-         vm.prank(director1);
-         votacion.votar(true);
+        vm.prank(director2);
+        votacion.votar(true);
 
-         (uint256 favor, ) = conteos();
+        vm.prank(director3);
+        votacion.votar(false);
 
-         assertEq(favor, 1);
-     }
+        (uint256 favor, uint256 contra) = conteos();
 
-     // TEST 11: No se puede cerrar exactamente al vencer
-     function testNoCerrarEnFechaLimite() public {
-         iniciar();
+        assertEq(favor, 2);
+        assertEq(contra, 1);
+    }
 
-         vm.warp(fechaLimite());
+    // TEST 7: Impedir doble voto
+    function testNoVotarDosVeces() public {
+        iniciar();
 
-         vm.expectRevert(
-             "Error: El periodo de votacion aun esta activo."
-         );
+        vm.prank(director1);
+        votacion.votar(true);
 
-         votacion.cerrarVotacion();
-     }
+        vm.expectRevert("Error: Ya has emitido tu voto para esta propuesta.");
 
-     // TEST 12: No votar despues del vencimiento
-     function testNoVotarDespuesDelPlazo() public {
-         iniciar();
+        vm.prank(director1);
+        votacion.votar(false);
 
-         vm.warp(fechaLimite() + 1);
+        (uint256 favor, uint256 contra) = conteos();
 
-         vm.expectRevert(
-             "Error: El periodo de votacion ha expirado."
-         );
+        assertEq(favor, 1);
+        assertEq(contra, 0);
+    }
 
-         vm.prank(director1);
-         votacion.votar(true);
-     }
+    // TEST 8: No puede votar un usuario externo
+    function testIntrusoNoPuedeVotar() public {
+        iniciar();
 
-     // TEST 13: Cierre aprobado y evento
-     function testCerrarAprobadaYEvento() public {
-         iniciar();
+        vm.expectRevert("Error: Acceso denegado. Solo los directores autorizados pueden votar.");
 
-         vm.prank(director1);
-         votacion.votar(true);
+        vm.prank(intruso);
+        votacion.votar(true);
+    }
 
-         vm.prank(director2);
-         votacion.votar(true);
+    // TEST 9: No cerrar antes del plazo
+    function testNoCerrarAntesDelPlazo() public {
+        iniciar();
 
-         vm.prank(director3);
-         votacion.votar(false);
+        vm.expectRevert("Error: El periodo de votacion aun esta activo.");
 
-         vm.warp(fechaLimite() + 1);
+        votacion.cerrarVotacion();
+    }
 
-         vm.expectEmit(
-             false, false, false, true,
-             address(votacion)
-         );
+    // TEST 10: Se puede votar exactamente al vencer
+    function testVotarEnFechaLimite() public {
+        iniciar();
 
-         emit VotacionCerrada(2, 1, true);
+        vm.warp(fechaLimite());
 
-         bool aprobada = votacion.cerrarVotacion();
+        vm.prank(director1);
+        votacion.votar(true);
 
-         assertTrue(aprobada);
+        (uint256 favor,) = conteos();
 
-         (, , , , bool ejecutada) =
-             votacion.propuestaActual();
+        assertEq(favor, 1);
+    }
 
-         assertTrue(ejecutada);
-     }
+    // TEST 11: No se puede cerrar exactamente al vencer
+    function testNoCerrarEnFechaLimite() public {
+        iniciar();
 
-     // TEST 14: Un empate no aprueba la propuesta
-     function testEmpateNoAprueba() public {
-         iniciar();
+        vm.warp(fechaLimite());
 
-         vm.prank(director1);
-         votacion.votar(true);
+        vm.expectRevert("Error: El periodo de votacion aun esta activo.");
 
-         vm.prank(director2);
-         votacion.votar(false);
+        votacion.cerrarVotacion();
+    }
 
-         vm.warp(fechaLimite() + 1);
+    // TEST 12: No votar despues del vencimiento
+    function testNoVotarDespuesDelPlazo() public {
+        iniciar();
 
-         bool aprobada = votacion.cerrarVotacion();
+        vm.warp(fechaLimite() + 1);
 
-         assertFalse(aprobada);
-     }
+        vm.expectRevert("Error: El periodo de votacion ha expirado.");
 
-     // TEST 15: No cerrar dos veces
-     function testNoCerrarDosVeces() public {
-         iniciar();
+        vm.prank(director1);
+        votacion.votar(true);
+    }
 
-         vm.warp(fechaLimite() + 1);
+    // TEST 13: Cierre aprobado y evento
+    function testCerrarAprobadaYEvento() public {
+        iniciar();
 
-         votacion.cerrarVotacion();
+        vm.prank(director1);
+        votacion.votar(true);
 
-         vm.expectRevert(
-             "Error: La votacion ya ha sido ejecutada/cerrada."
-         );
+        vm.prank(director2);
+        votacion.votar(true);
 
-         votacion.cerrarVotacion();
-     }
+        vm.prank(director3);
+        votacion.votar(false);
 
-     // TEST 16: Intruso no puede cerrar
-     function testIntrusoNoPuedeCerrar() public {
-         iniciar();
+        vm.warp(fechaLimite() + 1);
 
-         vm.warp(fechaLimite() + 1);
+        vm.expectEmit(false, false, false, true, address(votacion));
 
-         vm.expectRevert(
-             "Error: Solo el secretario puede administrar la votacion."
-         );
+        emit VotacionCerrada(2, 1, true);
 
-         vm.prank(intruso);
-         votacion.cerrarVotacion();
-     }
+        bool aprobada = votacion.cerrarVotacion();
 
-     // TEST 17: Demostracion del problema haVotado
-     function testBugVotoBloqueadoEnNuevaPropuesta() public {
-         iniciar();
+        assertTrue(aprobada);
 
-         vm.prank(director1);
-         votacion.votar(true);
+        (,,,, bool ejecutada) = votacion.propuestaActual();
 
-         vm.warp(fechaLimite() + 1);
+        assertTrue(ejecutada);
+    }
 
-         votacion.cerrarVotacion();
+    // TEST 14: Un empate no aprueba la propuesta
+    function testEmpateNoAprueba() public {
+        iniciar();
 
-         votacion.iniciarVotacion(
-             "Abrir nueva sucursal",
-             1 days
-         );
+        vm.prank(director1);
+        votacion.votar(true);
 
-         // El registro anterior sigue siendo true
-         assertTrue(votacion.haVotado(director1));
+        vm.prank(director2);
+        votacion.votar(false);
 
-         vm.expectRevert(
-             "Error: Ya has emitido tu voto para esta propuesta."
-         );
+        vm.warp(fechaLimite() + 1);
 
-         vm.prank(director1);
-         votacion.votar(true);
-     }
+        bool aprobada = votacion.cerrarVotacion();
 
-     // TEST 18: Demostracion de reemplazo de propuesta activa
-     function testBugReemplazarPropuestaActiva() public {
-         iniciar();
+        assertFalse(aprobada);
+    }
 
-         vm.prank(director1);
-         votacion.votar(true);
+    // TEST 15: No cerrar dos veces
+    function testNoCerrarDosVeces() public {
+        iniciar();
 
-         // El secretario reemplaza una votacion abierta
-         votacion.iniciarVotacion(
-             "Otra inversion",
-             1 days
-         );
+        vm.warp(fechaLimite() + 1);
 
-         (
-             string memory descripcion,
-             uint256 favor,
-             uint256 contra,
-             ,
-             bool ejecutada
-         ) = votacion.propuestaActual();
+        votacion.cerrarVotacion();
 
-         assertEq(descripcion, "Otra inversion");
-         assertEq(favor, 0);
-         assertEq(contra, 0);
-         assertFalse(ejecutada);
+        vm.expectRevert("Error: La votacion ya ha sido ejecutada/cerrada.");
 
-         // El voto previo no se reinicio en el mapping
-         assertTrue(votacion.haVotado(director1));
-     }
- }
+        votacion.cerrarVotacion();
+    }
+
+    // TEST 16: Intruso no puede cerrar
+    function testIntrusoNoPuedeCerrar() public {
+        iniciar();
+
+        vm.warp(fechaLimite() + 1);
+
+        vm.expectRevert("Error: Solo el secretario puede administrar la votacion.");
+
+        vm.prank(intruso);
+        votacion.cerrarVotacion();
+    }
+
+    // TEST 17: Demostracion del problema haVotado
+    function testBugVotoBloqueadoEnNuevaPropuesta() public {
+        iniciar();
+
+        vm.prank(director1);
+        votacion.votar(true);
+
+        vm.warp(fechaLimite() + 1);
+
+        votacion.cerrarVotacion();
+
+        votacion.iniciarVotacion("Abrir nueva sucursal", 1 days);
+
+        // El registro anterior sigue siendo true
+        assertTrue(votacion.haVotado(director1));
+
+        vm.expectRevert("Error: Ya has emitido tu voto para esta propuesta.");
+
+        vm.prank(director1);
+        votacion.votar(true);
+    }
+
+    // TEST 18: Demostracion de reemplazo de propuesta activa
+    function testBugReemplazarPropuestaActiva() public {
+        iniciar();
+
+        vm.prank(director1);
+        votacion.votar(true);
+
+        // El secretario reemplaza una votacion abierta
+        votacion.iniciarVotacion("Otra inversion", 1 days);
+
+        (string memory descripcion, uint256 favor, uint256 contra,, bool ejecutada) = votacion.propuestaActual();
+
+        assertEq(descripcion, "Otra inversion");
+        assertEq(favor, 0);
+        assertEq(contra, 0);
+        assertFalse(ejecutada);
+
+        // El voto previo no se reinicio en el mapping
+        assertTrue(votacion.haVotado(director1));
+    }
+}

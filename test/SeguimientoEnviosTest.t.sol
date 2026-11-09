@@ -1,284 +1,192 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
 
- // SPDX-License-Identifier: MIT
- pragma solidity ^0.8.0;
+import {Test} from "forge-std/Test.sol";
+import {SeguimientoEnvios} from "../src/10_SeguimientoEnvios.sol";
 
- import {Test} from "forge-std/Test.sol";
- import {SeguimientoEnvios} from "../src/10_SeguimientoEnvios.sol";
+contract SeguimientoEnviosTest is Test {
+    SeguimientoEnvios seguimiento;
 
- contract SeguimientoEnviosTest is Test {
+    address cliente = address(0xBEEF);
+    address intruso = address(0xBAD);
 
-     SeguimientoEnvios seguimiento;
+    // Eventos que vamos a verificar
+    event EnvioCreado(uint256 indexed idEnvio, string codigoSeguimiento, address cliente);
 
-     address cliente = address(0xBEEF);
-     address intruso = address(0xBAD);
+    event EstadoActualizado(uint256 indexed idEnvio, SeguimientoEnvios.EstadoEnvio nuevoEstado);
 
-     // Eventos que vamos a verificar
-     event EnvioCreado(
-         uint256 indexed idEnvio,
-         string codigoSeguimiento,
-         address cliente
-     );
+    function setUp() public {
+        seguimiento = new SeguimientoEnvios();
+    }
 
-     event EstadoActualizado(
-         uint256 indexed idEnvio,
-         SeguimientoEnvios.EstadoEnvio nuevoEstado
-     );
+    // Función auxiliar: crear un envío
+    function crearUno() internal {
+        seguimiento.crearEnvio("ENV-001", cliente);
+    }
 
-     function setUp() public {
-         seguimiento = new SeguimientoEnvios();
-     }
+    // Función auxiliar: consultar el estado
+    function estadoDe(uint256 id) internal view returns (uint8) {
+        (,, SeguimientoEnvios.EstadoEnvio estado) = seguimiento.envios(id);
 
-     // Función auxiliar: crear un envío
-     function crearUno() internal {
-         seguimiento.crearEnvio("ENV-001", cliente);
-     }
+        return uint8(estado);
+    }
 
-     // Función auxiliar: consultar el estado
-     function estadoDe(uint256 id)
-         internal
-         view
-         returns (uint8)
-     {
-         (
-             ,
-             ,
-             SeguimientoEnvios.EstadoEnvio estado
-         ) = seguimiento.envios(id);
+    // Función auxiliar: codificar un error
+    function errorTexto(string memory mensaje) internal pure returns (bytes memory) {
+        return abi.encodeWithSignature("Error(string)", mensaje);
+    }
 
-         return uint8(estado);
-     }
+    // TEST 1: Estado inicial
+    function testEstadoInicial() public view {
+        assertEq(seguimiento.administradorLogistica(), address(this));
 
-     // Función auxiliar: codificar un error
-     function errorTexto(string memory mensaje)
-         internal
-         pure
-         returns (bytes memory)
-     {
-         return abi.encodeWithSignature(
-             "Error(string)",
-             mensaje
-         );
-     }
+        assertEq(seguimiento.totalEnvios(), 0);
+    }
 
-     // TEST 1: Estado inicial
-     function testEstadoInicial() public view {
-         assertEq(
-             seguimiento.administradorLogistica(),
-             address(this)
-         );
+    // TEST 2: Crear envío y comprobar evento
+    function testCrearEnvioYEvento() public {
+        vm.expectEmit(true, false, false, true, address(seguimiento));
 
-         assertEq(seguimiento.totalEnvios(), 0);
-     }
+        emit EnvioCreado(0, "ENV-001", cliente);
 
-     // TEST 2: Crear envío y comprobar evento
-     function testCrearEnvioYEvento() public {
-         vm.expectEmit(
-             true, false, false, true,
-             address(seguimiento)
-         );
+        crearUno();
 
-         emit EnvioCreado(0, "ENV-001", cliente);
+        assertEq(seguimiento.totalEnvios(), 1);
 
-         crearUno();
+        (string memory codigo, address destinatario, SeguimientoEnvios.EstadoEnvio estado) = seguimiento.envios(0);
 
-         assertEq(seguimiento.totalEnvios(), 1);
+        assertEq(codigo, "ENV-001");
+        assertEq(destinatario, cliente);
+        assertEq(uint8(estado), 0);
+    }
 
-         (
-             string memory codigo,
-             address destinatario,
-             SeguimientoEnvios.EstadoEnvio estado
-         ) = seguimiento.envios(0);
+    // TEST 3: Cliente inválido
+    function testClienteCero() public {
+        vm.expectRevert(errorTexto("Error: Cliente invalido."));
 
-         assertEq(codigo, "ENV-001");
-         assertEq(destinatario, cliente);
-         assertEq(uint8(estado), 0);
-     }
+        seguimiento.crearEnvio("ENV-001", address(0));
+    }
 
-     // TEST 3: Cliente inválido
-     function testClienteCero() public {
-         vm.expectRevert(
-             errorTexto("Error: Cliente invalido.")
-         );
+    // TEST 4: Código de seguimiento vacío
+    function testCodigoVacio() public {
+        vm.expectRevert(errorTexto("Error: Codigo de seguimiento vacio."));
 
-         seguimiento.crearEnvio(
-             "ENV-001",
-             address(0)
-         );
-     }
+        seguimiento.crearEnvio("", cliente);
+    }
 
-     // TEST 4: Código de seguimiento vacío
-     function testCodigoVacio() public {
-         vm.expectRevert(
-             errorTexto(
-                 "Error: Codigo de seguimiento vacio."
-             )
-         );
+    // TEST 5: Intruso intenta crear un envío
+    function testIntrusoNoPuedeCrear() public {
+        vm.expectRevert(errorTexto("Error: Solo el administrador logistico puede cambiar estados."));
 
-         seguimiento.crearEnvio("", cliente);
-     }
+        vm.prank(intruso);
 
-     // TEST 5: Intruso intenta crear un envío
-     function testIntrusoNoPuedeCrear() public {
-         vm.expectRevert(
-             errorTexto(
-                 "Error: Solo el administrador logistico puede cambiar estados."
-             )
-         );
+        seguimiento.crearEnvio("ENV-001", cliente);
+    }
 
-         vm.prank(intruso);
+    // TEST 6: Despachar envío y comprobar evento
+    function testDespacharYEvento() public {
+        crearUno();
 
-         seguimiento.crearEnvio(
-             "ENV-001",
-             cliente
-         );
-     }
+        vm.expectEmit(true, false, false, true, address(seguimiento));
 
-     // TEST 6: Despachar envío y comprobar evento
-     function testDespacharYEvento() public {
-         crearUno();
+        emit EstadoActualizado(0, SeguimientoEnvios.EstadoEnvio.EnTransito);
 
-         vm.expectEmit(
-             true, false, false, true,
-             address(seguimiento)
-         );
+        seguimiento.despacharEnvio(0);
 
-         emit EstadoActualizado(
-             0,
-             SeguimientoEnvios.EstadoEnvio.EnTransito
-         );
+        assertEq(estadoDe(0), 1);
+    }
 
-         seguimiento.despacharEnvio(0);
+    // TEST 7: No despachar dos veces
+    function testNoDespacharDosVeces() public {
+        crearUno();
+        seguimiento.despacharEnvio(0);
 
-         assertEq(estadoDe(0), 1);
-     }
+        vm.expectRevert(errorTexto("Error: Solo se puede despachar si esta en estado Creado."));
 
-     // TEST 7: No despachar dos veces
-     function testNoDespacharDosVeces() public {
-         crearUno();
-         seguimiento.despacharEnvio(0);
+        seguimiento.despacharEnvio(0);
+    }
 
-         vm.expectRevert(
-             errorTexto(
-                 "Error: Solo se puede despachar si esta en estado Creado."
-             )
-         );
+    // TEST 8: No entregar desde Creado
+    function testNoEntregarDesdeCreado() public {
+        crearUno();
 
-         seguimiento.despacharEnvio(0);
-     }
+        vm.expectRevert(errorTexto("Error: El envio debe estar EnTransito para entregarse."));
 
-     // TEST 8: No entregar desde Creado
-     function testNoEntregarDesdeCreado() public {
-         crearUno();
+        seguimiento.entregarEnvio(0);
+    }
 
-         vm.expectRevert(
-             errorTexto(
-                 "Error: El envio debe estar EnTransito para entregarse."
-             )
-         );
+    // TEST 9: Entregar envío y comprobar evento
+    function testEntregarYEvento() public {
+        crearUno();
+        seguimiento.despacharEnvio(0);
 
-         seguimiento.entregarEnvio(0);
-     }
+        vm.expectEmit(true, false, false, true, address(seguimiento));
 
-     // TEST 9: Entregar envío y comprobar evento
-     function testEntregarYEvento() public {
-         crearUno();
-         seguimiento.despacharEnvio(0);
+        emit EstadoActualizado(0, SeguimientoEnvios.EstadoEnvio.Recibido);
 
-         vm.expectEmit(
-             true, false, false, true,
-             address(seguimiento)
-         );
+        seguimiento.entregarEnvio(0);
 
-         emit EstadoActualizado(
-             0,
-             SeguimientoEnvios.EstadoEnvio.Recibido
-         );
+        assertEq(estadoDe(0), 2);
+    }
 
-         seguimiento.entregarEnvio(0);
+    // TEST 10: Cancelar desde Creado
+    function testCancelarDesdeCreado() public {
+        crearUno();
 
-         assertEq(estadoDe(0), 2);
-     }
+        vm.expectEmit(true, false, false, true, address(seguimiento));
 
-     // TEST 10: Cancelar desde Creado
-     function testCancelarDesdeCreado() public {
-         crearUno();
+        emit EstadoActualizado(0, SeguimientoEnvios.EstadoEnvio.Cancelado);
 
-         vm.expectEmit(
-             true, false, false, true,
-             address(seguimiento)
-         );
+        seguimiento.cancelarEnvio(0);
 
-         emit EstadoActualizado(
-             0,
-             SeguimientoEnvios.EstadoEnvio.Cancelado
-         );
+        assertEq(estadoDe(0), 3);
+    }
 
-         seguimiento.cancelarEnvio(0);
+    // TEST 11: Cancelar desde EnTransito
+    function testCancelarDesdeTransito() public {
+        crearUno();
+        seguimiento.despacharEnvio(0);
+        seguimiento.cancelarEnvio(0);
 
-         assertEq(estadoDe(0), 3);
-     }
+        assertEq(estadoDe(0), 3);
+    }
 
-     // TEST 11: Cancelar desde EnTransito
-     function testCancelarDesdeTransito() public {
-         crearUno();
-         seguimiento.despacharEnvio(0);
-         seguimiento.cancelarEnvio(0);
+    // TEST 12: No cancelar un envío recibido
+    function testNoCancelarRecibido() public {
+        crearUno();
+        seguimiento.despacharEnvio(0);
+        seguimiento.entregarEnvio(0);
 
-         assertEq(estadoDe(0), 3);
-     }
+        vm.expectRevert(errorTexto("Error: No se puede cancelar un envio ya recibido o cancelado."));
 
-     // TEST 12: No cancelar un envío recibido
-     function testNoCancelarRecibido() public {
-         crearUno();
-         seguimiento.despacharEnvio(0);
-         seguimiento.entregarEnvio(0);
+        seguimiento.cancelarEnvio(0);
+    }
 
-         vm.expectRevert(
-             errorTexto(
-                 "Error: No se puede cancelar un envio ya recibido o cancelado."
-             )
-         );
+    // TEST 13: No cancelar dos veces
+    function testNoCancelarDosVeces() public {
+        crearUno();
+        seguimiento.cancelarEnvio(0);
 
-         seguimiento.cancelarEnvio(0);
-     }
+        vm.expectRevert(errorTexto("Error: No se puede cancelar un envio ya recibido o cancelado."));
 
-     // TEST 13: No cancelar dos veces
-     function testNoCancelarDosVeces() public {
-         crearUno();
-         seguimiento.cancelarEnvio(0);
+        seguimiento.cancelarEnvio(0);
+    }
 
-         vm.expectRevert(
-             errorTexto(
-                 "Error: No se puede cancelar un envio ya recibido o cancelado."
-             )
-         );
+    // TEST 14: ID inexistente
+    function testEnvioInexistente() public {
+        vm.expectRevert(errorTexto("Error: El envio no existe."));
 
-         seguimiento.cancelarEnvio(0);
-     }
+        seguimiento.despacharEnvio(999);
+    }
 
-     // TEST 14: ID inexistente
-     function testEnvioInexistente() public {
-         vm.expectRevert(
-             errorTexto(
-                 "Error: El envio no existe."
-             )
-         );
+    // TEST 15: Intruso intenta cambiar estado
+    function testIntrusoNoPuedeDespachar() public {
+        crearUno();
 
-         seguimiento.despacharEnvio(999);
-     }
+        vm.expectRevert(errorTexto("Error: Solo el administrador logistico puede cambiar estados."));
 
-     // TEST 15: Intruso intenta cambiar estado
-     function testIntrusoNoPuedeDespachar() public {
-         crearUno();
+        vm.prank(intruso);
 
-         vm.expectRevert(
-             errorTexto(
-                 "Error: Solo el administrador logistico puede cambiar estados."
-             )
-         );
-
-         vm.prank(intruso);
-
-         seguimiento.despacharEnvio(0);
-     }
- }
+        seguimiento.despacharEnvio(0);
+    }
+}

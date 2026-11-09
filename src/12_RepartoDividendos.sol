@@ -24,12 +24,10 @@ contract RepartoDividendos {
     /**
      * @dev Configura las wallets de los socios fundadores.
      */
-    constructor(
-        address payable _socioA,
-        address payable _socioB,
-        address payable _socioC
-    ) {
-        require(_socioA != address(0) && _socioB != address(0) && _socioC != address(0), "Error: Direcciones invalidas.");
+    constructor(address payable _socioA, address payable _socioB, address payable _socioC) {
+        require(
+            _socioA != address(0) && _socioB != address(0) && _socioC != address(0), "Error: Direcciones invalidas."
+        );
         socioA = _socioA;
         socioB = _socioB;
         socioC = _socioC;
@@ -46,14 +44,14 @@ contract RepartoDividendos {
         // En Solidity no hay floats, por lo que (monto * porcentaje) / 100 es el estándar
         uint256 cuotaA = (montoTotal * PORCENTAJE_A) / 100;
         uint256 cuotaB = (montoTotal * PORCENTAJE_B) / 100;
-        
+
         // Para evitar pérdida por decimales de redondeo, el último socio recibe la diferencia restante
         uint256 cuotaC = montoTotal - cuotaA - cuotaB;
 
         // Ejecutar las transferencias
-        (bool exitoA, ) = socioA.call{value: cuotaA}("");
-        (bool exitoB, ) = socioB.call{value: cuotaB}("");
-        (bool exitoC, ) = socioC.call{value: cuotaC}("");
+        (bool exitoA,) = socioA.call{value: cuotaA}("");
+        (bool exitoB,) = socioB.call{value: cuotaB}("");
+        (bool exitoC,) = socioC.call{value: cuotaC}("");
 
         require(exitoA && exitoB && exitoC, "Error: Fallo al transferir a uno de los socios.");
 

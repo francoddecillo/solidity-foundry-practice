@@ -19,10 +19,10 @@ contract VotacionDirectorio {
 
     // Registro de los directores autorizados para votar
     mapping(address => bool) public esDirector;
-    
+
     // Propuesta actual en votación
     Propuesta public propuestaActual;
-    
+
     // Registro para saber si un director ya emitió su voto en la propuesta actual
     // Mapeo: Dirección del Director => Ha Votado (true/false)
     mapping(address => bool) public haVotado;
@@ -48,7 +48,7 @@ contract VotacionDirectorio {
      */
     constructor(address[] memory _directoresIniciales) {
         secretarioGeneral = msg.sender;
-        
+
         uint256 total = _directoresIniciales.length;
         for (uint256 i = 0; i < total; i++) {
             esDirector[_directoresIniciales[i]] = true;
@@ -62,7 +62,7 @@ contract VotacionDirectorio {
      */
     function iniciarVotacion(string memory _descripcion, uint256 _duracionSegundos) public soloSecretario {
         require(bytes(_descripcion).length > 0, "Error: La descripcion no puede estar vacia.");
-        
+
         propuestaActual = Propuesta({
             descripcion: _descripcion,
             votosAFAvor: 0,
@@ -105,7 +105,7 @@ contract VotacionDirectorio {
         require(block.timestamp > propuestaActual.limiteTiempo, "Error: El periodo de votacion aun esta activo.");
 
         propuestaActual.ejecutada = true;
-        
+
         if (propuestaActual.votosAFAvor > propuestaActual.votosEnContra) {
             aprobada = true;
         } else {

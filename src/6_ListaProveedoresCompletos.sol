@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0; 
+pragma solidity ^0.8.0;
 
 /**
  * @title ListaProveedoresCompletos
@@ -18,7 +18,7 @@ contract ListaProveedoresCompletos {
 
     // Mapeo: Dirección del Proveedor => Ficha detallada del Proveedor
     mapping(address => Proveedor) public proveedores;
-    
+
     // Dirección del Gerente de Finanzas
     address public gerenteFinanzas;
 
@@ -37,20 +37,15 @@ contract ListaProveedoresCompletos {
      * @param _nombre Nombre comercial.
      * @param _rut RUT o identificador tributario.
      */
-    function registrarProveedor(
-        address _walletProveedor,
-        string memory _nombre,
-        string memory _rut
-    ) public soloGerente {
+    function registrarProveedor(address _walletProveedor, string memory _nombre, string memory _rut)
+        public
+        soloGerente
+    {
         require(_walletProveedor != address(0), "Error: Direccion del proveedor no valida.");
-        
+
         // Asignación directa en el mapeo
-        proveedores[_walletProveedor] = Proveedor({
-            nombre: _nombre,
-            rutIdentificacion: _rut,
-            volumenCompraUSD: 0,
-            estaActivo: true
-        });
+        proveedores[_walletProveedor] =
+            Proveedor({nombre: _nombre, rutIdentificacion: _rut, volumenCompraUSD: 0, estaActivo: true});
     }
 
     /**
@@ -61,7 +56,7 @@ contract ListaProveedoresCompletos {
     function registrarCompra(address _walletProveedor, uint256 _montoUSD) public soloGerente {
         // Validación de que el proveedor existe y está activo
         require(proveedores[_walletProveedor].estaActivo, "Error: El proveedor no esta registrado o esta inactivo.");
-        
+
         proveedores[_walletProveedor].volumenCompraUSD += _montoUSD;
     }
 

@@ -11,7 +11,7 @@ pragma solidity ^0.8.0;
 contract ControlAccesoBasico {
     // Dirección del dueño (Gerente General)
     address public gerenteGeneral;
-    
+
     // Dirección física de la oficina principal
     string public direccionOficina;
 

@@ -11,10 +11,10 @@ pragma solidity ^0.8.0;
 contract SuscripcionServicio {
     // Dirección del propietario del servicio SaaS (para retirar las ganancias)
     address public propietarioServicio;
-    
+
     // Costo mensual del servicio (ej. en wei)
     uint256 public costoMensual;
-    
+
     // Duración de la membresía: 30 días (30 días * 24 horas * 60 min * 60 seg)
     uint256 public constant DURACION_MES = 30 days;
 
@@ -25,7 +25,9 @@ contract SuscripcionServicio {
     event RetiroGanancias(address propietario, uint256 monto);
 
     modifier soloPropietario() {
-        require(msg.sender == propietarioServicio, "Error: Solo el propietario del servicio puede realizar esta accion.");
+        require(
+            msg.sender == propietarioServicio, "Error: Solo el propietario del servicio puede realizar esta accion."
+        );
         _;
     }
 
@@ -78,7 +80,7 @@ contract SuscripcionServicio {
         uint256 balance = address(this).balance;
         require(balance > 0, "Error: No hay ganancias para retirar.");
 
-        (bool exito, ) = propietarioServicio.call{value: balance}("");
+        (bool exito,) = propietarioServicio.call{value: balance}("");
         require(exito, "Error: El retiro fallo.");
 
         emit RetiroGanancias(propietarioServicio, balance);
